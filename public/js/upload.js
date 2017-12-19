@@ -36,9 +36,9 @@ dropEnd(image)
 
 
 submit.addEventListener('click', () => {
-
     if (file.files[0]) {
-        
+        let fd = new FormData()
+        fd.append('file', file.files[0])
         let xhr = new XMLHttpRequest();
         xhr.onreadystatechange = () => {
             if (xhr.status === 200 && xhr.readyState === 4) {
@@ -47,17 +47,16 @@ submit.addEventListener('click', () => {
         }
 
         xhr.upload.onprogress = function (event) {
-            
+
 
     　　　　if (event.lengthComputable) {
     　　　　　　var complete = (event.loaded / event.total * 100 | 0);
     　　　　　　progress.value = complete;
 	　　　　}
-			
+
     　　};
         xhr.open('post','/upload', true);
-        xhr.setRequestHeader("Content-type",'multipart/form-data, boundary=AaB03x');
-        xhr.send(file.files[0]);
+        xhr.send(fd);
     }
 });
 

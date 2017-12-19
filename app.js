@@ -1,77 +1,34 @@
-let http = require('http');
-let fs = require('fs');
-let url = require('url');
-let path = require('path');
+const path = require('path')
+const Promise = require('bluebird')
+const fs = Promise.promisifyAll(require('fs'))
+const Koa = require('koa')
+const app = new Koa()
+const serve = require('koa-static')
+const logger = require('koa-logger')
+const Router = require('koa-router')
+const router = new Router()
+const koaBody = require('koa-body')
+const send = require('koa-send')
+app.use(logger())
 
-let conn = require('./services/contect_mysql'); 
+app.use(serve(path.join(__dirname, 'public')))
+app.use(koaBody({multipart: true}))
 
-http.createServer((req, res) => {
-    // console.log(req.url);
-    if (req.url === '/') {
-        fs.readFile('index.html', (err, data) => {
-            res.writeHead(200, {"Content-Type": 'text/html'});
-            res.end(data);
-        })
-    }
-    
-    
+router
+    .get('/', async (ctx, next) => {
+        await send(ctx, './index.html')
+    })
+    .post('/upload', async (ctx, next) => {
+        console.log(ctx.request.body)
+        let data = ctx.request.body.files.file
+        const reader = fs.createReadStream(data.path)
+        const stream = fs.createWriteStream(`./public/image/${Math.floor(Math.random() * 10000)}.jpg`)
+        reader.pipe(stream)
+        ctx.body = {status: 200}
+    })
 
-    else if (req.url === '/upload') {
-        let segment = [];
-        req.on('data', (chunk) => {
-            segment.push(chunk);
-        });
+app
+    .use(router.routes())
+    .use(router.allowedMethods())
 
-        req.on('end', () => {
-            let b = Buffer.concat(segment);
-            let pngName = Math.round(Math.random() * 100000000) + '.png';
-            let pathName = 'public/image/' +  pngName;
-            fs.writeFile(pathName, b, (err) => {
-                if (err) {
-                    console.log(err);
-                }
-                else {
-                    console.log(pathName)
-                    conn.query('INSERT INTO image VALUE (?)',[pathName], (err,data) => {
-                        if (err) {
-                            console.log(err);
-                        }
-                    })
-                    console.log('ok');
-                }
-            });
-            res.writeHead(200);
-            res.end();
-        });
-    }
-    
-
-    else {
-        let root = path.resolve(process.argv[2] || '.');
-        // 获得URL的path，类似 '/css/bootstrap.css':
-        let pathname = url.parse(req.url).pathname;
-        // // 获得对应的本地文件路径，类似 '/srv/www/css/bootstrap.css':
-        let filepath = path.join(root, pathname);
-        // // 获取文件状态:
-        fs.stat(filepath, (err, stats) => {
-            if (!err && stats.isFile()) {
-                // 没有出错并且文件存在:
-                console.log('200 ' + req.url);
-                // 发送200响应:
-                res.writeHead(200);
-                // 将文件流导向response:
-                fs.createReadStream(filepath).pipe(res);
-            } else {
-                // 出错了或者文件不存在:
-                console.log('404 ' + req.url);
-                // 发送404响应:
-                res.writeHead(404);
-                res.end('404 Not Found');
-            }
-        });
-    }
-
-    
-}).listen(3000, '127.0.0.1', () => {
-    console.log('success');
-});
+app.listen(3000)
